@@ -1,8 +1,7 @@
-name: Silk EDA Pipeline
+name: SILK EDA
 
 on:
   push:
-    # Chỉ kích hoạt khi có thay đổi trong thư mục generic
     paths:
       - 'generic/rtl/**'
       - 'generic/tb/**'
@@ -17,40 +16,64 @@ jobs:
   run_eda_pipeline:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Cấp quyền commit ngược lại cho bot
+      contents: write 
     steps:
-      - name: Checkout Code
+      - name: Tải mã nguồn
         uses: actions/checkout@v4
 
-      - name: Pull Silk EDA Image
+      - name: Cập nhật môi trường SILK EDA
         run: docker pull huyatieo/silk-eda:latest
 
-      - name: Chạy Pipeline
+      - name: Khởi chạy SILK EDA
         run: |
           echo "=== KÍCH HOẠT SILK EDA ==="
           
-          # Mount thư mục generic vào Docker Container
-          docker run --rm -v "${{ github.workspace }}/generic:/workspace" huyatieo/silk-eda:latest
+          # 1. Tắt tính năng tự động thoát khi gặp lỗi của GitHub Runner
+          set +e 
           
-          # Chuyển vào thư mục con generic để gom sản phẩm đầu ra
+          # 2. Chạy Docker: Bắt toàn bộ luồng log (stdout & stderr) vào file eda_log.txt
+          docker run --rm -v "${{ github.workspace }}/generic:/workspace" huyatieo/silk-eda:latest > generic/eda_log.txt 2>&1
+          
+          # 3. Lưu lại mã lỗi thực sự của quá trình chạy (0 là pass, khác 0 là fail)
+          EXIT_CODE=$?
+          
+          # Vẫn in log ra console của GitHub để backup
+          cat generic/eda_log.txt
+          
+          # 4. Gom file kết quả và file log vào thư mục ẩn
           cd generic
           mkdir -p .results
-          mv *.svg *.md sim/*.vcd .results/ 2>/dev/null || true
+          mv *.svg *.md sim/*.vcd eda_log.txt .results/ 2>/dev/null || true
+          
+          # 5. Ép GitHub báo Xanh (Pass) hay Đỏ (Fail) dựa vào đúng mã lỗi ở bước 3
+          exit $EXIT_CODE
 
-      - name: Auto-Commit Kết Quả Lên Repo
+      - name: Tự động lưu kết quả lên Repository
         uses: stefanzweifel/git-auto-commit-action@v5
+        # Lệnh if: always() đảm bảo vẫn push kết quả lên kể cả khi Verilator báo lỗi
+        if: always()
         with:
-          commit_message: "Auto-generate EDA reports and SVGs (generic folder)"
+          commit_message: "Tự động tạo báo cáo EDA, sơ đồ và Log (thư mục generic)"
           file_pattern: 'generic/.results/*'
 
-      - name: Tạo Báo Cáo Trực Quan (Job Summary)
+      - name: Tạo Báo cáo Trực quan
         if: always()
         run: |
           REPO_URL="https://raw.githubusercontent.com/${{ github.repository }}/${{ github.ref_name }}"
-          
           cd generic
           
-          echo "# 📊 Báo Cáo Phân Tích Silk EDA" >> $GITHUB_STEP_SUMMARY
+          echo "# 📊 Báo Cáo Phân Tích SILK EDA" >> $GITHUB_STEP_SUMMARY
+          
+          # --- HIỂN THỊ TRỰC TIẾP LOG RA SUMMARY ---
+          echo "## 💻 Nhật ký thực thi (Logs)" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          if [ -f ".results/eda_log.txt" ]; then
+            cat .results/eda_log.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Không thể tạo file log hoặc tiến trình bị ngắt đột ngột." >> $GITHUB_STEP_SUMMARY
+          fi
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          # -----------------------------------------
           
           if [ -f "config.txt" ]; then
             TOP_MODULE=$(grep "^TOP_MODULE" config.txt | awk -F'=' '{print $2}' | tr -d ' ' | tr -d '\r')
@@ -60,18 +83,19 @@ jobs:
           
           echo "## 1. Sơ Đồ Module" >> $GITHUB_STEP_SUMMARY
           if [ -f ".results/module_${TOP_MODULE}.svg" ]; then
-             # Trỏ URL ảnh raw vào thư mục generic
-             echo "![Module Symbol](${REPO_URL}/generic/.results/module_${TOP_MODULE}.svg)" >> $GITHUB_STEP_SUMMARY
+             echo "![Sơ Đồ Module](${REPO_URL}/generic/.results/module_${TOP_MODULE}.svg)" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo "## 2. RTL Schematic" >> $GITHUB_STEP_SUMMARY
           if [ -f ".results/schematic_${TOP_MODULE}.svg" ]; then
-             echo "![RTL Schematic](${REPO_URL}/generic/.results/schematic_${TOP_MODULE}.svg)" >> $GITHUB_STEP_SUMMARY
+             echo "![Sơ Đồ Nguyên Lý RTL](${REPO_URL}/generic/.results/schematic_${TOP_MODULE}.svg)" >> $GITHUB_STEP_SUMMARY
           fi
 
-          echo "## 3. Thông số I/O" >> $GITHUB_STEP_SUMMARY
-          if [ -f ".results/module_docs.md" ]; then
-            tail -n +3 .results/module_docs.md >> $GITHUB_STEP_SUMMARY
+          echo "## 3. Sơ Đồ Trạng Thái (FSM)" >> $GITHUB_STEP_SUMMARY
+          if [ -f ".results/fsm_${TOP_MODULE}.svg" ]; then
+             echo "![Sơ Đồ FSM](${REPO_URL}/generic/.results/fsm_${TOP_MODULE}.svg)" >> $GITHUB_STEP_SUMMARY
+          else
+             echo "*(Không phát hiện máy trạng thái - State Machine trong thiết kế này)*" >> $GITHUB_STEP_SUMMARY
           fi
           
-          echo "> 💡 **Mẹo:** Tải file \`.vcd\` trong thư mục \`generic/.results\` để xem sóng mô phỏng bằng VCDrom hoặc Surfer." >> $GITHUB_STEP_SUMMARY
+          echo "> 💡 **Mẹo:** Tải file \`.vcd\` trong thư mục \`generic/.results\` để xem sóng mô phỏng." >> $GITHUB_STEP_SUMMARY
