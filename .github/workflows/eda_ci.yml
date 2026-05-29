@@ -21,10 +21,14 @@ jobs:
 
   yosys_synthesis:
     runs-on: ubuntu-latest
-    container: hdl/yosys:latest
+    # Không dùng Docker container nữa, chạy thẳng trên nền Ubuntu Runner
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      # Gọi Action chính chủ từ YosysHQ để setup bộ tool
+      - name: Setup OSS CAD Suite
+        uses: YosysHQ/setup-oss-cad-suite@v3
 
       - name: Run Yosys Synthesis Check
         run: |
