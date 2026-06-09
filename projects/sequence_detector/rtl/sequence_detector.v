@@ -7,7 +7,8 @@ module sequence_detector (
 
    
     reg [1:0] state;
-    
+    // CHỈ THỊ PRAGMA ÉP YOSYS NHẬN DIỆN FSM 
+    (* fsm_encoding = "auto" *)
     localparam IDLE  = 2'd0; 
     localparam S1    = 2'd1; 
     localparam S10   = 2'd2; 
