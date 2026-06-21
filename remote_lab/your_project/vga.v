@@ -5,6 +5,7 @@ module top_module (
     input  wire       clk,
     input  wire       rst_n,
     input  wire [7:0] SW,       // 8 switch control
+    input  wire [1:0] KEY,      // 2 key control
     output wire       hsync,    // xung dong bo ngang
     output wire       vsync,    // xung dong bo doc
     output reg  [1:0] r,      // 2-bit red
