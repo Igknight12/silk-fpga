@@ -68,11 +68,11 @@ TB_NAME = ten_file_testbench_cua_ban
 ### 🛠️ Cách sử dụng
 1. **Fork** repository này về tài khoản GitHub cá nhân của bạn (nếu đã làm rồi thì làm 1 lần thui nhe).
 2. Thêm các file thiết kế RTL '.v' và '.sv' vào thư mục rtl, file testbench vào thư mục tb ( phải có tiền tố 'tb_' ở trước thì mới là file tb hợp lệ, ví dụ: 'tb_mul.sv').
-3. Nếu muốn tạo ra file sóng để xem, bạn phải thêm vào bên trong file tb như sau, bạn có thể xem sóng được tạo ra trong thư mục **sim** bằng gtkwave:
+3. Nếu muốn tạo ra file sóng để xem, bạn phải thêm vào bên trong file tb như sau, bạn có thể xem sóng được tạo ra (file .vcd) trong thư mục **sim** bằng gtkwave:
 ``` text
  initial begin
         // thêm vào để trình biên dịch tạo sóng
-        $dumpfile("sim/waveform.vcd");
+        $dumpfile("waveform.vcd");
         $dumpvars(0, tb_mul);
  end
 ```
