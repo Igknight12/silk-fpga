@@ -313,7 +313,7 @@ module dino_ctrl #(
     output wire [9:0] dino_y,
     output reg        on_ground
   );
-  localparam signed [11:0] JUMP_V0    = 12'sd12;
+    localparam signed [11:0] JUMP_V0    = -12'sd12;
   localparam signed [11:0] GRAVITY    =  12'sd1;
   localparam signed [11:0] GROUND_TOP = GROUND_Y - DINO_H;
 
